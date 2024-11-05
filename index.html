@@ -32,32 +32,26 @@
             margin: 5px;
             display: inline-block;
         }
-    </style>
-
-<style>
-
-.mi-enlace {
+        .mi-enlace {
             font-size: 48px;
-            color: rgb(230, 230, 230); /* Color del texto */
+            color: rgb(230, 230, 230);
             text-decoration: none;
-            padding: 20px 30px; /* Espaciado interno del enlace */
-            background-color: rgba(255, 255, 255, 0.2); /* Fondo blanco con opacidad */
-            border: 3px solid rgba(255, 255, 255, 0.6); /* Borde blanco y algo opaco */
-            border-radius: 8px; /* Bordes redondeados */
-            transition: all 0.3s ease; /* Transición suave */
-            box-shadow: 0 0 20px rgba(255, 255, 255, 0.3); /* Sombra difusa y suave */
+            padding: 20px 30px;
+            background-color: rgba(255, 255, 255, 0.2);
+            border: 3px solid rgba(255, 255, 255, 0.6);
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
             justify-content: center;
             align-items: center;
             display: flex;
         }
-
         .mi-enlace:hover {
-            background-color: rgba(255, 255, 255, 0.5); /* Fondo más opaco al pasar el mouse */
-            border-color: rgba(255, 255, 255, 1); /* Borde más intenso */
-            box-shadow: 0 0 25px rgba(255, 255, 255, 0.7); /* Borde desenfocado más pronunciado */
+            background-color: rgba(255, 255, 255, 0.5);
+            border-color: rgba(255, 255, 255, 1);
+            box-shadow: 0 0 25px rgba(255, 255, 255, 0.7);
         }
-</style>
-
+    </style>
 </head>
 <body>
     <h1>Subamos Nuevos Recuerdos</h1>
@@ -142,94 +136,63 @@
             fileThumbnails.innerHTML = '';
 
             fetch('/uploads')
-                .then(response => response.json())
-                .then(files => {
-                    files.forEach(file => {
-                        const div = document.createElement('div');
-                        const checkbox = document.createElement('input');
-                        checkbox.type = 'checkbox';
-                        checkbox.value = file;
-                        checkbox.id = file;
-
-                        const label = document.createElement('label');
-                        label.htmlFor = file;
-                        label.textContent = file;
-
-                        const img = document.createElement('img');
-                        img.src = `/uploads/${file}`;
-                        img.className = 'thumbnail';
-
-                        div.appendChild(checkbox);
-                        div.appendChild(label);
-                        div.appendChild(img);
-                        fileThumbnails.appendChild(div);
-                    });
-                })
-                .catch(error => {
-                    console.error('Error al cargar archivos:', error);
+            .then(response => response.json())
+            .then(files => {
+                files.forEach(file => {
+                    const img = document.createElement('img');
+                    img.src = '/uploads/' + file;
+                    img.className = 'thumbnail';
+                    img.dataset.file = file;
+                    img.onclick = toggleFileSelection;
+                    fileThumbnails.appendChild(img);
                 });
+            })
+            .catch(error => console.error('Error loading files for deletion:', error));
+        }
+
+        function toggleFileSelection(event) {
+            const img = event.target;
+            img.classList.toggle('selected');
         }
 
         function deleteSelectedFiles() {
-            const checkboxes = document.querySelectorAll('#fileThumbnails input[type="checkbox"]:checked');
-            const promises = Array.from(checkboxes).map(checkbox => {
-                console.log('Intentando eliminar archivo:', checkbox.value); // Log para verificar el valor enviado
-                return fetch(`/delete`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ fileName: checkbox.value })
-                });
-            });
+            const selectedFiles = document.querySelectorAll('.thumbnail.selected');
+            const fileNames = Array.from(selectedFiles).map(img => img.dataset.file);
 
-            Promise.all(promises)
-                .then(responses => Promise.all(responses.map(res => res.text())))
-                .then(messages => {
-                    messages.forEach(msg => showMessage(msg));
-                    loadFilesForDeletion();
-                })
-                .catch(error => {
-                    console.error('Error al eliminar archivos:', error);
-                });
+            if (fileNames.length === 0) {
+                alert("Por favor, selecciona al menos un archivo para eliminar.");
+                return;
+            }
+
+            fetch('/delete', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ fileName: fileNames[0] })
+            })
+            .then(response => response.text())
+            .then(data => {
+                showMessage(data);
+                closeDeleteModal();
+            })
+            .catch(error => {
+                alert("Error al eliminar el archivo.");
+                console.error(error);
+            });
         }
 
+        // Conexión a Socket.io
         const socket = io('http://localhost:3000');
 
-
-        socket.on('loadFiles', (files) => {
-            const fileThumbnails = document.getElementById('fileThumbnails');
-            fileThumbnails.innerHTML = '';
-            files.forEach(file => {
-                const div = document.createElement('div');
-                const checkbox = document.createElement('input');
-                checkbox.type = 'checkbox';
-                checkbox.value = file;
-                checkbox.id = file;
-
-                const label = document.createElement('label');
-                label.htmlFor = file;
-                label.textContent = file;
-
-                const img = document.createElement('img');
-                img.src = `/uploads/${file}`;
-                img.className = 'thumbnail';
-
-                div.appendChild(checkbox);
-                div.appendChild(label);
-                div.appendChild(img);
-                fileThumbnails.appendChild(div);
-            });
+        socket.on('newFile', fileName => {
+            showMessage('Nuevo archivo cargado: ' + fileName);
         });
 
-        socket.on('newFile', () => {
+        socket.on('fileDeleted', fileName => {
+            showMessage('Archivo eliminado: ' + fileName);
             loadFilesForDeletion();
         });
     </script>
-
-<div class="contenedor">
-    <a href="clienteB.html" target="_blank" class="mi-enlace">+</a>
-</div>
-
 </body>
 </html>

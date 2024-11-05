@@ -27,11 +27,12 @@ app.use(fileUpload());  // Middleware para manejar archivos subidos
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static('uploads'));
 
-// Configurar headers de seguridad y eliminar 'interest-cohort'
+// Configurar headers de seguridad sin 'interest-cohort'
 app.use((req, res, next) => {
-    res.setHeader('Permissions-Policy', 'geolocation=(self), microphone=(self)');
+    res.setHeader('Permissions-Policy', 'geolocation=(self), microphone=(self)'); // Sin 'interest-cohort'
     next();
 });
+
 
 // Ruta para subir archivos
 app.post('/upload', (req, res) => {

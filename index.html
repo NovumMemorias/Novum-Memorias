@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -237,3 +238,244 @@
 
 </body>
 </html>
+=======
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subamos Nuevos Recuerdos</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* Estilos para el modal */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.5);
+            padding-top: 60px;
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+        }
+        .thumbnail {
+            width: 100px;
+            height: auto;
+            margin: 5px;
+            display: inline-block;
+        }
+    </style>
+
+<style>
+
+.mi-enlace {
+            font-size: 48px;
+            color: rgb(230, 230, 230); /* Color del texto */
+            text-decoration: none;
+            padding: 20px 30px; /* Espaciado interno del enlace */
+            background-color: rgba(255, 255, 255, 0.2); /* Fondo blanco con opacidad */
+            border: 3px solid rgba(255, 255, 255, 0.6); /* Borde blanco y algo opaco */
+            border-radius: 8px; /* Bordes redondeados */
+            transition: all 0.3s ease; /* Transición suave */
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.3); /* Sombra difusa y suave */
+            justify-content: center;
+            align-items: center;
+            display: flex;
+        }
+
+        .mi-enlace:hover {
+            background-color: rgba(255, 255, 255, 0.5); /* Fondo más opaco al pasar el mouse */
+            border-color: rgba(255, 255, 255, 1); /* Borde más intenso */
+            box-shadow: 0 0 25px rgba(255, 255, 255, 0.7); /* Borde desenfocado más pronunciado */
+        }
+</style>
+
+</head>
+<body>
+    <h1>Subamos Nuevos Recuerdos</h1>
+
+    <div class="button-container">
+        <button class="b1" onclick="document.getElementById('fileInput').click()">Seleccionar Archivos</button>
+        <input class="file-input" type="file" id="fileInput" multiple onchange="filesSelected()" style="display: none;">
+        <button class="b1" onclick="uploadFiles()">Cargar</button>
+        <button onclick="openDeleteMenu()" class="b1">Quitar Recuerdos</button>
+    </div>
+    
+    <div id="message"></div>
+
+    <div id="deleteModal" class="modal">
+        <div class="modal-content">
+            <h2>Eliminar Archivos</h2>
+            <div id="fileThumbnails"></div>
+            <button onclick="deleteSelectedFiles()">Eliminar Seleccionados</button>
+            <button onclick="closeDeleteModal()">Cerrar</button>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <script>
+        function showMessage(text) {
+            const messageDiv = document.getElementById('message');
+            messageDiv.innerText = text;
+            messageDiv.classList.add('show');
+            setTimeout(() => {
+                messageDiv.classList.remove('show');
+            }, 3000);
+        }
+
+        function filesSelected() {
+            const fileInput = document.getElementById("fileInput");
+            const files = fileInput.files;
+            if (files.length > 0) {
+                const fileNames = Array.from(files).map(file => file.name).join(', ');
+                showMessage("Archivos seleccionados: " + fileNames);
+            }
+        }
+
+        function uploadFiles() {
+            const fileInput = document.getElementById('fileInput');
+            const files = fileInput.files;
+            if (files.length === 0) {
+                showMessage('Por favor, selecciona archivos para cargar.');
+                return;
+            }
+
+            const formData = new FormData();
+            Array.from(files).forEach(file => {
+                formData.append('files', file);
+            });
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.text())
+            .then(data => {
+                showMessage(data);
+                fileInput.value = "";
+            })
+            .catch(error => {
+                showMessage('Error al cargar los archivos.');
+                console.error(error);
+            });
+        }
+
+        function openDeleteMenu() {
+            loadFilesForDeletion();
+            document.getElementById('deleteModal').style.display = 'block';
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('deleteModal').style.display = 'none';
+        }
+
+        function loadFilesForDeletion() {
+            const fileThumbnails = document.getElementById('fileThumbnails');
+            fileThumbnails.innerHTML = '';
+
+            fetch('/uploads')
+                .then(response => response.json())
+                .then(files => {
+                    files.forEach(file => {
+                        const div = document.createElement('div');
+                        const checkbox = document.createElement('input');
+                        checkbox.type = 'checkbox';
+                        checkbox.value = file;
+                        checkbox.id = file;
+
+                        const label = document.createElement('label');
+                        label.htmlFor = file;
+                        label.textContent = file;
+
+                        const img = document.createElement('img');
+                        img.src = `/uploads/${file}`;
+                        img.className = 'thumbnail';
+
+                        div.appendChild(checkbox);
+                        div.appendChild(label);
+                        div.appendChild(img);
+                        fileThumbnails.appendChild(div);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error al cargar archivos:', error);
+                });
+        }
+
+        function deleteSelectedFiles() {
+            const checkboxes = document.querySelectorAll('#fileThumbnails input[type="checkbox"]:checked');
+            const promises = Array.from(checkboxes).map(checkbox => {
+                console.log('Intentando eliminar archivo:', checkbox.value); // Log para verificar el valor enviado
+                return fetch(`/delete`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ fileName: checkbox.value })
+                });
+            });
+
+            Promise.all(promises)
+                .then(responses => Promise.all(responses.map(res => res.text())))
+                .then(messages => {
+                    messages.forEach(msg => showMessage(msg));
+                    loadFilesForDeletion();
+                })
+                .catch(error => {
+                    console.error('Error al eliminar archivos:', error);
+                });
+        }
+
+        const socket = io('http://localhost:3000');
+
+
+        socket.on('loadFiles', (files) => {
+            const fileThumbnails = document.getElementById('fileThumbnails');
+            fileThumbnails.innerHTML = '';
+            files.forEach(file => {
+                const div = document.createElement('div');
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.value = file;
+                checkbox.id = file;
+
+                const label = document.createElement('label');
+                label.htmlFor = file;
+                label.textContent = file;
+
+                const img = document.createElement('img');
+                img.src = `/uploads/${file}`;
+                img.className = 'thumbnail';
+
+                div.appendChild(checkbox);
+                div.appendChild(label);
+                div.appendChild(img);
+                fileThumbnails.appendChild(div);
+            });
+        });
+
+        socket.on('newFile', () => {
+            loadFilesForDeletion();
+        });
+    </script>
+
+
+
+
+
+<div class="contenedor">
+    <a href="clienteB.html" target="_blank" class="mi-enlace">+</a>
+</div>
+
+</body>
+</html>
+>>>>>>> 82737a47db3d69c49329032843e41f7b9b89a368

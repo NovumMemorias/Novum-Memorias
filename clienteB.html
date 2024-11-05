@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="styles.css">
+    <title>Reproducción de Videos e Imágenes</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        html, body {
+            height: 100vh;
+            margin: 0;
+            padding: 0;
+            font-family: Montserrat, sans-serif;
+            overflow: hidden;
+        }
+
+        #videoContainer {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden; /* Evita desbordamientos */
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: none; /* Oculta el video inicialmente */
+        }
+
+        .image-container {
+            display: flex;
+            height: 100vh; /* Ocupa la altura completa */
+            width: 100%; /* Asegura que ocupe todo el ancho */
+            position: relative;
+            margin: 0;
+        }
+
+        .vertical {
+            width: 50%; /* Ocupa la mitad del ancho */
+            height: 100vh; /* Ocupa toda la altura */
+            object-fit: cover;
+            margin: 0;
+        }
+
+        .horizontal {
+            width: 100%; /* Ocupa todo el ancho */
+            height: 100vh; /* Ocupa toda la altura */
+            object-fit: cover;
+        }
+
+        /* Botón para pantalla completa */
+        #fullscreenBtn {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: none;
+            color: white;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            z-index: 1000;
+        }
+
+        #fullscreenBtn:hover {
+            opacity: 0.7;
+        }
+
+        /* Borde para depuración visual */
+        .image-container, .vertical, .horizontal {
+            outline: 1px solid red; /* Solo para depuración */
+        }
+    </style>
+</head>
+<body>
+    <div id="videoContainer">
+        <video id="videoPlayer" autoplay muted playsinline></video>
+        <button id="fullscreenBtn" onclick="toggleFullScreen()">&#x26F6;</button>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const videoPlayer = document.getElementById('videoPlayer');
+        let mediaFiles = [];
+        let currentIndex = 0;
+
+        function toggleFullScreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+            }
+        }
+
+        function getOrientation(filePath) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.src = filePath;
+
+                img.onload = () => {
+                    // Determina la orientación basándose en las dimensiones de la imagen
+                    resolve(img.width < img.height ? 'vertical' : 'horizontal');
+                };
+
+                img.onerror = () => {
+                    // Si hay un error al cargar la imagen, considera que es horizontal
+                    resolve('horizontal');
+                };
+            });
+        }
+
+        async function playNextMedia() {
+            if (mediaFiles.length === 0) return;
+
+            const fileName = mediaFiles[currentIndex];
+            const filePath = `/uploads/${fileName}`;
+            console.log("Reproduciendo:", fileName);
+
+            if (/\.(mp4|mov|avi)$/.test(fileName)) {
+                // Ocultar cualquier imagen que esté en pantalla
+                const imageContainer = document.getElementById('imageContainer');
+                if (imageContainer) {
+                    imageContainer.remove(); // Asegurarse de eliminar el contenedor de imágenes
+                }
+
+                // Configurar el video
+                videoPlayer.src = filePath;
+                videoPlayer.style.display = "block";
+
+                // Esperar a que el video esté listo para reproducirse
+                    videoPlayer.oncanplay = () => {
+                        videoPlayer.play().catch(error => {
+                            console.error("Error al reproducir el video:", error);
+                        });
+                };
+
+                videoPlayer.onended = () => {
+                    currentIndex = (currentIndex + 1) % mediaFiles.length; // Avanza al siguiente archivo
+                    playNextMedia(); // Llama a la siguiente media
+                };
+            } else {
+                // Obtener la orientación del archivo
+                const orientation = await getOrientation(filePath);
+                
+                if (orientation === 'vertical') {
+                    // Reproducir imágenes verticales de a pares
+                    videoPlayer.style.display = "none";
+
+                    const imageContainer = document.createElement('div');
+                    imageContainer.className = 'image-container';
+                    imageContainer.id = 'imageContainer';
+
+                    const img1 = document.createElement('img');
+                    img1.src = filePath;
+                    img1.className = 'vertical';
+                    img1.onload = () => {
+                        imageContainer.appendChild(img1); // Añade la imagen solo cuando cargue
+                    };
+
+                    // Avanzar al siguiente archivo
+                    currentIndex = (currentIndex + 1) % mediaFiles.length; // Aumentar índice para la siguiente imagen
+                    const nextFileName = mediaFiles[currentIndex];
+                    const nextFilePath = `/uploads/${nextFileName}`;
+
+                    // Asegúrate de que el siguiente archivo también sea vertical
+                    const nextOrientation = await getOrientation(nextFilePath);
+                    if (nextOrientation === 'vertical') {
+                        const img2 = document.createElement('img');
+                        img2.src = nextFilePath;
+                        img2.className = 'vertical';
+                        img2.onload = () => {
+                            imageContainer.appendChild(img2); // Añade la segunda imagen solo cuando cargue
+                            document.getElementById('videoContainer').appendChild(imageContainer);
+                        };
+
+                        // Cambiar a la siguiente imagen o video después de un tiempo
+                        setTimeout(() => {
+                            document.getElementById('videoContainer').removeChild(imageContainer);
+                            currentIndex = (currentIndex + 1) % mediaFiles.length; // Avanza el índice
+                            playNextMedia();
+                        }, 3500);
+                    } else {
+                        // Si el siguiente archivo no es vertical, muestra solo la primera imagen
+                        document.getElementById('videoContainer').appendChild(imageContainer);
+                        setTimeout(() => {
+                            document.getElementById('videoContainer').removeChild(imageContainer);
+                            currentIndex = (currentIndex + 1) % mediaFiles.length; // Avanza el índice
+                            playNextMedia();
+                        }, 3500);
+                    }
+                } else {
+                    // Reproducir imágenes horizontales en pantalla completa
+                    videoPlayer.style.display = "none";
+                    const img = document.createElement('img');
+                    img.src = filePath;
+                    img.className = 'horizontal';
+                    img.style.display = "block";
+                    img.onload = () => {
+                        document.getElementById('videoContainer').appendChild(img); // Añade la imagen solo cuando cargue
+                    };
+
+                    // Cambiar a la siguiente imagen o video después de un tiempo
+                    setTimeout(() => {
+                        document.getElementById('videoContainer').removeChild(img);
+                        currentIndex = (currentIndex + 1) % mediaFiles.length;
+                        playNextMedia();
+                    }, 3500);
+                }
+            }
+        }
+
+        socket.on('loadFiles', (files) => {
+            mediaFiles = files.filter(file => /\.(mp4|mov|avi|jpg|jpeg|png|gif)$/.test(file));
+            console.log("Archivos cargados:", mediaFiles);
+            playNextMedia();
+        });
+
+        socket.on('newFile', (fileName) => {
+    if (/\.(mp4|mov|avi|jpg|jpeg|png|gif)$/.test(fileName)) {
+        mediaFiles.push(fileName);
+        console.log("Nuevo archivo añadido:", fileName);
+        
+        if (mediaFiles.length === 1) { // Solo llama a playNextMedia si no se está reproduciendo nada
+            playNextMedia();
+        }
+    }
+});
+
+
+        window.addEventListener('load', () => {
+            socket.emit('requestFiles'); // Solicita los archivos al cargar la página
+        });
+    </script>
+</body>
+</html>

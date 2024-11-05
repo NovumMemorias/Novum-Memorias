@@ -80,7 +80,7 @@
         </div>
     </div>
 
-    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
     <script>
         function showMessage(text) {
             const messageDiv = document.getElementById('message');
@@ -194,7 +194,8 @@
                 });
         }
 
-        const socket = io();
+        const socket = io('http://localhost:3000');
+
 
         socket.on('loadFiles', (files) => {
             const fileThumbnails = document.getElementById('fileThumbnails');
